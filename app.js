@@ -186,15 +186,61 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
-  // 6. Main RFQ Form Submission
+  // 6. Main RFQ Form Submission (Connected to Google Sheets & Email Automation)
+  const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzBZU4UKt7b1Dx6XHPhO0nWjQVag-O8zPo0Gf8MD712K1j9hgtn0KJBGrhcetPF4yEH/exec';
   const rfqMainForm = document.getElementById('rfqMainForm');
+  const submitRfqBtn = document.getElementById('submitRfqBtn');
+
   if (rfqMainForm) {
-    rfqMainForm.addEventListener('submit', (e) => {
+    rfqMainForm.addEventListener('submit', async (e) => {
       e.preventDefault();
-      const comp = document.getElementById('rfqCompanyName').value;
-      showToast(`Permintaan RFQ untuk ${comp} telah diterima! Tim sales akan menghubungi via WhatsApp/Email.`);
-      rfqMainForm.reset();
-      calculateCBM();
+
+      // Kumpulkan data form dan hasil kalkulasi CBM
+      const payload = {
+        origin: document.getElementById('rfqOrigin')?.value || '',
+        dest: document.getElementById('rfqDest')?.value || '',
+        serviceType: document.getElementById('rfqServiceType')?.value || '',
+        cbm: document.getElementById('resCbm')?.textContent || '',
+        volAir: document.getElementById('resVolAir')?.textContent || '',
+        recommendation: document.getElementById('resRecom')?.textContent || '',
+        actualWeight: document.getElementById('actualWeight')?.value || '',
+        companyName: document.getElementById('rfqCompanyName')?.value || '',
+        email: document.getElementById('rfqEmail')?.value || '',
+        phone: document.getElementById('rfqPhone')?.value || '',
+        notes: document.getElementById('rfqNotes')?.value || ''
+      };
+
+      const originalBtnHTML = submitRfqBtn ? submitRfqBtn.innerHTML : '';
+      if (submitRfqBtn) {
+        submitRfqBtn.disabled = true;
+        submitRfqBtn.innerHTML = `
+          <span style="display: inline-flex; align-items: center; gap: 0.5rem;">
+            <span>Mengirim Data...</span>
+          </span>
+        `;
+      }
+
+      try {
+        await fetch(GOOGLE_SCRIPT_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify(payload),
+          mode: 'no-cors'
+        });
+
+        showToast(`Permintaan RFQ untuk ${payload.companyName} berhasil dikirim! Silakan cek Email Anda.`);
+        rfqMainForm.reset();
+        calculateCBM();
+      } catch (error) {
+        console.error('Error submitting RFQ:', error);
+        showToast('Gagal mengirim otomatis. Silakan hubungi kami via WhatsApp.');
+      } finally {
+        if (submitRfqBtn) {
+          submitRfqBtn.disabled = false;
+          submitRfqBtn.innerHTML = originalBtnHTML;
+          if (window.lucide) window.lucide.createIcons();
+        }
+      }
     });
   }
 
