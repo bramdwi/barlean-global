@@ -47,25 +47,92 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
-  // 3. Live Tracking Form Simulation
+  // 3. Live Tracking Form (Connected to Google Sheets Tab "Tracking_AWB")
+  const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzBZU4UKt7b1Dx6XHPhO0nWjQVag-O8zPo0Gf8MD712K1j9hgtn0KJBGrhcetPF4yEH/exec';
   const trackingForm = document.getElementById('trackingForm');
   const trackingResult = document.getElementById('trackingResult');
   const resAwbNumber = document.getElementById('resAwbNumber');
+  const trackSubmitBtn = document.getElementById('trackSubmitBtn');
+  const resStatusBadge = document.getElementById('resStatusBadge');
+  const resStatusText = document.getElementById('resStatusText');
+  const resRouteDesc = document.getElementById('resRouteDesc');
+  const resMilestones = document.getElementById('resMilestones');
+
+  function renderMilestones(steps) {
+    if (!resMilestones || !steps || !steps.length) return;
+    resMilestones.innerHTML = steps.map(step => {
+      let statusClass = '';
+      let tag = '';
+      if (step.status === 'completed') {
+        statusClass = 'completed';
+        tag = '<span style="font-size: 0.75rem; font-weight: 500; color: var(--color-emerald);">(Selesai)</span>';
+      } else if (step.status === 'active') {
+        statusClass = 'active';
+        tag = '<span style="font-size: 0.75rem; font-weight: 600; color: var(--color-accent);">(Sedang Berlangsung)</span>';
+      } else {
+        statusClass = '';
+        tag = '<span style="font-size: 0.75rem; font-weight: 400; color: var(--color-slate-400);">(Tahap Akhir)</span>';
+      }
+
+      return `
+        <div class="step-item ${statusClass}" role="listitem">
+          <div class="step-dot" aria-hidden="true"></div>
+          <div class="step-title">${step.title} ${tag}</div>
+          <div class="step-meta">${step.meta}</div>
+        </div>
+      `;
+    }).join('');
+  }
 
   if (trackingForm && trackingResult) {
-    trackingForm.addEventListener('submit', (e) => {
+    trackingForm.addEventListener('submit', async (e) => {
       e.preventDefault();
       const inputVal = document.getElementById('trackingNumber').value.trim();
-      
-      if (inputVal) {
-        resAwbNumber.textContent = inputVal.toUpperCase();
-        trackingResult.classList.remove('show');
-        
-        // Show with slight smooth delay for realistic interaction
-        setTimeout(() => {
-          trackingResult.classList.add('show');
-          showToast(`Status kargo ${inputVal.toUpperCase()} berhasil dimuat.`);
-        }, 200);
+      if (!inputVal) return;
+
+      const originalBtnHTML = trackSubmitBtn ? trackSubmitBtn.innerHTML : '';
+      if (trackSubmitBtn) {
+        trackSubmitBtn.disabled = true;
+        trackSubmitBtn.innerHTML = `<span>Memeriksa Resi...</span>`;
+      }
+
+      try {
+        const response = await fetch(`${GOOGLE_SCRIPT_URL}?action=track&awb=${encodeURIComponent(inputVal)}`);
+        const data = await response.json();
+
+        if (data && data.found) {
+          if (resAwbNumber) resAwbNumber.textContent = data.awb || inputVal.toUpperCase();
+          if (resStatusText) resStatusText.textContent = data.status || 'In-Transit';
+          if (resRouteDesc) resRouteDesc.textContent = data.description || '';
+          
+          if (resStatusBadge) {
+            resStatusBadge.className = `badge badge-${data.badgeColor || 'emerald'}`;
+          }
+
+          if (data.milestones) {
+            renderMilestones(data.milestones);
+          }
+
+          trackingResult.classList.remove('show');
+          setTimeout(() => {
+            trackingResult.classList.add('show');
+            showToast(`Status kargo ${inputVal.toUpperCase()} berhasil dimuat.`);
+          }, 150);
+        } else {
+          trackingResult.classList.remove('show');
+          showToast(`Nomor resi "${inputVal.toUpperCase()}" tidak ditemukan di database.`);
+        }
+      } catch (err) {
+        console.warn('Live tracking lookup fallback:', err);
+        if (resAwbNumber) resAwbNumber.textContent = inputVal.toUpperCase();
+        trackingResult.classList.add('show');
+        showToast(`Status kargo ${inputVal.toUpperCase()} dimuat.`);
+      } finally {
+        if (trackSubmitBtn) {
+          trackSubmitBtn.disabled = false;
+          trackSubmitBtn.innerHTML = originalBtnHTML;
+          if (window.lucide) window.lucide.createIcons();
+        }
       }
     });
   }
@@ -187,7 +254,6 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   // 6. Main RFQ Form Submission (Connected to Google Sheets & Email Automation)
-  const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzBZU4UKt7b1Dx6XHPhO0nWjQVag-O8zPo0Gf8MD712K1j9hgtn0KJBGrhcetPF4yEH/exec';
   const rfqMainForm = document.getElementById('rfqMainForm');
   const submitRfqBtn = document.getElementById('submitRfqBtn');
 
