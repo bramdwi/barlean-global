@@ -63,10 +63,12 @@ document.addEventListener('DOMContentLoaded', () => {
     resMilestones.innerHTML = steps.map(step => {
       let statusClass = '';
       let tag = '';
-      if (step.status === 'completed') {
+      const st = (step.status || '').toString().toLowerCase().trim();
+
+      if (st.includes('completed') || st.includes('selesai') || st.includes('done') || st.includes('finish') || st.includes('sukses')) {
         statusClass = 'completed';
         tag = '<span style="font-size: 0.75rem; font-weight: 500; color: var(--color-emerald);">(Selesai)</span>';
-      } else if (step.status === 'active') {
+      } else if (st.includes('active') || st.includes('berlangsung') || st.includes('proses') || st.includes('transit') || st.includes('otw')) {
         statusClass = 'active';
         tag = '<span style="font-size: 0.75rem; font-weight: 600; color: var(--color-accent);">(Sedang Berlangsung)</span>';
       } else {
@@ -106,7 +108,16 @@ document.addEventListener('DOMContentLoaded', () => {
           if (resRouteDesc) resRouteDesc.textContent = data.description || '';
           
           if (resStatusBadge) {
-            resStatusBadge.className = `badge badge-${data.badgeColor || 'emerald'}`;
+            const rawStatus = (data.status || '').toLowerCase();
+            let badgeStyle = data.badgeColor || 'emerald';
+            if (rawStatus.includes('delivered') || rawStatus.includes('selesai') || rawStatus.includes('diterima')) {
+              badgeStyle = 'emerald';
+            } else if (rawStatus.includes('transit') || rawStatus.includes('perjalanan')) {
+              badgeStyle = 'accent';
+            } else if (rawStatus.includes('customs') || rawStatus.includes('cukai') || rawStatus.includes('tunda')) {
+              badgeStyle = 'orange';
+            }
+            resStatusBadge.className = `badge badge-${badgeStyle}`;
           }
 
           if (data.milestones) {
